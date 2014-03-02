@@ -2,7 +2,56 @@ __author__ = 'gt'
 
 import commands
 
-if __name__ =='__main__':
+encoding = 'UTF-8'
+
+def get_sentences(lines):
+  ret = []
+  ret.append([])
+  i=0
+  for line in lines:
+    if(len(line.strip()) == 0):
+      i += 1
+      ret.append([])
+      continue
+    ret[i].extend([line])
+
+  return ret
+
+def get_column_args(arg_lines):
+  ret = []
+
+  col_count = len(arg_lines[0].strip().split('\t'))
+
+  for col in xrange(0, col_count):
+    ret.append([])
+    for arg_line in arg_lines:
+      ret[-1].extend([arg_line.split('\t')[col].strip()])
+
+  return ret
+
+def get_standoff_lines(srl_args_per_sentence):
+  '''
+   srl_args_per_sentence - columns in senna output
+   are converted into rows for further processing
+   Col1  - Words
+   Col2  - Word spans
+   Col3  - chosen verb
+   .     - argument structure per verb starts from this column
+   .
+   Coln
+  '''
+
+  for sent_srl_arg in srl_args_per_sentence:
+    no_of_tokens = len(sent_srl_arg[0])
+    for i in xrange(3, len(sent_srl_arg)):
+
+      for j in xrange(0, no_of_tokens):
+        print sent_srl_arg[i][j]
+
+
+  return []
+
+def main(args):
   files = commands.getoutput('find /home/gt/Downloads/senna/coref-recipes -type f ')
 
   for file in files.rstrip().split('\n'):
@@ -11,66 +60,26 @@ if __name__ =='__main__':
     f = open(file)
     lines = f.readlines()
 
-    a0 = []
-    a1 = []
-    a2 = []
-    a3 = []
-    a4 = []
-    a5 = []
-    pred = []
+    sentences = get_sentences(lines)
 
-    for line in lines:
-      if len(line.strip()) == 0:
+    srl_args_per_sentence = []
+    #convert senna output columns to rows for each s entence
+    for sentence in sentences:
+      if(len(sentence) != 0):
+        srl_args_per_sentence.append(get_column_args(sentence))
 
-        sentCnt += 1
+    #standoff_lines for the document
+    standoff_lines = get_standoff_lines(srl_args_per_sentence)
 
-        if(len(pred) > 0 ):
-          print "Annotations for sentnumber: " + str(sentCnt)
-          for i in range(0, len(a0)):
-            if len(pred[i].strip()) == 0:
-              continue
-            print "pred: " + pred[i]
-            print "a0: " + a0[i]
-            print "a1: " + a1[i]
-            print "a2: " + a2[i]
-            print "a3: " + a3[i]
-            print "a4: " + a4[i]
-            print "a5: " + a5[i]
+    #write the standoff output
+    # ann_out = codecs.open(file+'.standout','w', encoding)
+    #
+    # for standoff_line in standoff_lines:
+    #   ann_out.write(standoff_line)
+    #
+    # ann_out.close()
+    f.close()
 
-        a0 = []
-        a1 = []
-        a2 = []
-        a3 = []
-        a4 = []
-        a5 = []
-        pred = []
-        continue
-
-      columns = line.split('\t')
-      if(len(a0) == 0):
-        for i in xrange(0, len(columns) - 2):
-          a0.append('')
-          a1.append('')
-          a2.append('')
-          a3.append('')
-          a4.append('')
-          a5.append('')
-          pred.append('')
-        pass
-
-      for i in xrange(2, len(columns)):
-        column = columns[i].strip()
-        if column.endswith('-A0'):
-          a0[i-2] += columns[0].strip() + ' '
-        elif column.endswith('-A1'):
-          a1[i - 2] += columns[0].strip() + ' '
-        elif column.endswith('-A2'):
-          a2[i - 2] += columns[0].strip() + ' '
-        elif column.endswith('-A3'):
-          a3[i - 2] += columns[0].strip() + ' '
-        elif column.endswith('-A4'):
-          a4[i - 2] += columns[0].strip() + ' '
-        elif column.endswith('-A5'):
-          a5[i - 2] += columns[0].strip() + ' '
-        elif column.endswith('-V'):
-          pred[i - 2] += columns[0].strip() + ' '
+if __name__ == '__main__':
+  from sys import argv
+  exit(main(argv))
