@@ -5,7 +5,19 @@ import codecs
 
 encoding = 'UTF-8'
 
+'''
+senna was run with the following flags
+
+./senna-linux64 -posvbs  -offsettags -srl < input_file > output_file
+
+-posvbs flag was required to handle for eg: add predicate in imperative sentence
+
+'''
+
 def get_sentences(lines):
+  '''
+  API to segregate the senna output into chunks per sentence
+  '''
   ret = []
   ret.append([])
   i=0
@@ -19,6 +31,11 @@ def get_sentences(lines):
   return ret
 
 def get_column_args(arg_lines):
+  '''
+  API to transform the senna output column into a row
+
+  arg_lines : chunk of lines for one sentence
+  '''
   ret = []
 
   col_count = len(arg_lines[0].strip().split('\t'))
@@ -116,16 +133,16 @@ def get_standoff_groups(srl_args_per_sentence):
     no_of_tokens = len(sent_srl_arg[0])
     #per sentence processing:
 
-
     for i in xrange(3, len(sent_srl_arg)):
       ret.append(generate_standoff(sent_srl_arg, i, offset))
 
+    # +1 to account for newline char
     offset += int(sent_srl_arg[1][-1].split()[1]) + 1
 
   return ret
 
 def main(args):
-  files = commands.getoutput('find /home/gt/Downloads/senna/coref-recipes -type f ')
+  files = commands.getoutput('find <input_dir_containing_senna_output> -type f ')
 
   for file in files.rstrip().split('\n'):
     print "parsing annotation from " + file
@@ -145,13 +162,41 @@ def main(args):
     standoff_groups = get_standoff_groups(srl_args_per_sentence)
 
     # write the standoff output
-    ann_out = codecs.open(file.replace('coref-recipes','senna-standoff'),'w', encoding)
+    #input is in xxxxx dir, write the output to yyyy dir by changing the dirname in the path
+    ann_out = codecs.open(file.replace('xxxxx','yyyy'),'w', encoding)
 
     symbol_counter = 1
+    relation_counter = 1
     for standoff_group in standoff_groups:
+      relation_line = ['', '', '', '']
       for standoff_line in standoff_group:
         ann_out.write('T' +str(symbol_counter) + '\t' + standoff_line + '\n')
+        if(standoff_line.startswith('predicate')):
+          relation_line[0] = 'T' + str(symbol_counter)
+        elif standoff_line.startswith('arg0'):
+          relation_line[1] = 'T' + str(symbol_counter)
+          pass
+        elif standoff_line.startswith('arg1'):
+          relation_line[2] = 'T' + str(symbol_counter)
+          pass
+        elif standoff_line.startswith('arg2'):
+          relation_line[3] = 'T' + str(symbol_counter)
+          pass
         symbol_counter += 1
+
+      #writing out relation line
+      if(len(relation_line[0]) != 0):
+
+        if(len(relation_line[1])!=0):
+          ann_out.write('R' + str(relation_counter) + '\tParg0 Arg1:' + relation_line[0] +' Arg2:'+relation_line[1]+'\n')
+          relation_counter += 1
+        if len(relation_line[2]) != 0:
+          ann_out.write('R' + str(relation_counter) + '\tParg1 Arg1:' + relation_line[0] +' Arg2:'+relation_line[2]+'\n')
+          relation_counter += 1
+        if len(relation_line[3]) != 0:
+          ann_out.write('R' + str(relation_counter) + '\tParg2 Arg1:' + relation_line[0] +' Arg2:'+relation_line[3]+'\n')
+          relation_counter += 1
+
 
     ann_out.close()
     f.close()
