@@ -1,6 +1,7 @@
 __author__ = 'gt'
 
 import commands
+import codecs
 
 encoding = 'UTF-8'
 
@@ -29,7 +30,61 @@ def get_column_args(arg_lines):
 
   return ret
 
-def get_standoff_lines(srl_args_per_sentence):
+def generate_standoff(srl_args, idx):
+  """
+  Assuming a grammar here:
+  S-V is a predicate
+  *-A0 translates to arg0
+  *-A1 translates to arg1
+  *-A2 translates to arg2
+  Parse the IOBES format
+  """
+  ret = []
+  tokens = len(srl_args[idx])
+  for i in xrange(0, tokens):
+    if(srl_args[idx][i].endswith('S-V')):
+      #predicate + ' ' + span markers + text
+      ret.append('predicate ' + srl_args[1][i] + '\t' + srl_args[0][i])
+    elif(srl_args[idx][i].endswith('-A0')):
+      if(srl_args[idx][i] == 'S-A0'):
+        ret.append('arg0 ' + srl_args[1][i] + '\t' + srl_args[0][i])
+      elif(srl_args[idx][i] == 'E-A0'):
+        ret.append('arg0 ' + span + ' ' +srl_args[1][i].split()[1] + '\t' + text +' ' + srl_args[0][i])
+        text = ""
+        span = ""
+      elif(srl_args[idx][i] == 'B-A0'):
+        span = srl_args[1][i].split()[0]
+        text = srl_args[0][i]
+      elif(srl_args[idx][i] == 'I-A0'):
+        text += ' ' + srl_args[0][i]
+    elif(srl_args[idx][i].endswith('-A1')):
+      if(srl_args[idx][i] == 'S-A1'):
+        ret.append('arg1 ' + srl_args[1][i] + '\t' + srl_args[0][i])
+      elif(srl_args[idx][i] == 'E-A1'):
+        ret.append('arg1 ' + span + ' ' +srl_args[1][i].split()[1] + '\t' + text +' ' + srl_args[0][i])
+        text = ""
+        span = ""
+      elif(srl_args[idx][i] == 'B-A1'):
+        span = srl_args[1][i].split()[0]
+        text = srl_args[0][i]
+      elif(srl_args[idx][i] == 'I-A1'):
+        text += ' ' + srl_args[0][i]
+    elif(srl_args[idx][i].endswith('-A2')):
+      if(srl_args[idx][i] == 'S-A2'):
+        ret.append('arg2 ' + srl_args[1][i] + '\t' + srl_args[0][i])
+      elif(srl_args[idx][i] == 'E-A2'):
+        ret.append('arg2 ' + span + ' ' +srl_args[1][i].split()[1] + '\t' + text +' ' + srl_args[0][i])
+        text = ""
+        span = ""
+      elif(srl_args[idx][i] == 'B-A2'):
+        span = srl_args[1][i].split()[0]
+        text = srl_args[0][i]
+      elif(srl_args[idx][i] == 'I-A2'):
+        text += ' ' + srl_args[0][i]
+
+  return ret
+
+def get_standoff_groups(srl_args_per_sentence):
   '''
    srl_args_per_sentence - columns in senna output
    are converted into rows for further processing
@@ -40,16 +95,16 @@ def get_standoff_lines(srl_args_per_sentence):
    .
    Coln
   '''
+  ret = []
 
   for sent_srl_arg in srl_args_per_sentence:
     no_of_tokens = len(sent_srl_arg[0])
+    #per sentence processing:
+
     for i in xrange(3, len(sent_srl_arg)):
+      ret.append(generate_standoff(sent_srl_arg, i))
 
-      for j in xrange(0, no_of_tokens):
-        print sent_srl_arg[i][j]
-
-
-  return []
+  return ret
 
 def main(args):
   files = commands.getoutput('find /home/gt/Downloads/senna/coref-recipes -type f ')
@@ -69,15 +124,16 @@ def main(args):
         srl_args_per_sentence.append(get_column_args(sentence))
 
     #standoff_lines for the document
-    standoff_lines = get_standoff_lines(srl_args_per_sentence)
+    standoff_groups = get_standoff_groups(srl_args_per_sentence)
 
-    #write the standoff output
-    # ann_out = codecs.open(file+'.standout','w', encoding)
-    #
-    # for standoff_line in standoff_lines:
-    #   ann_out.write(standoff_line)
-    #
-    # ann_out.close()
+    # write the standoff output
+    ann_out = codecs.open(file+'.standout','w', encoding)
+
+    for standoff_group in standoff_groups:
+      for standoff_line in standoff_group:
+        ann_out.write(standoff_line + '\n')
+
+    ann_out.close()
     f.close()
 
 if __name__ == '__main__':
